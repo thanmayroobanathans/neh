@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#fff6f0">
+<meta name="description" content="A cozy, ad-free, open-source Pomodoro timer with a little room that grows as you focus.">
+<title>Pomo Nook</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌱</text></svg>">
+<!-- Pomo Nook · MIT License · No ads, no tracking, all data stays in your browser. -->
+<style>
+:root{--bg:#fff6f0;--card:#fff;--ink:#5b4b5a;--soft:#a08fa0;--pink:#ff9aa2;--pink-d:#f0727e;--mint:#b5ead7;--mint-d:#7fd1b3;--lav:#c7ceea;--peach:#ffdac1;--shadow:0 6px 18px rgba(155,110,130,.15);--r:22px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:ui-rounded,"SF Pro Rounded","Nunito","Quicksand",system-ui,sans-serif;display:flex;justify-content:center}
+[hidden]{display:none!important}
+.app{width:100%;max-width:480px;padding:12px 14px calc(96px + env(safe-area-inset-bottom))}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.brand{font-weight:800;font-size:1.15rem}
+.hdr-r{display:flex;gap:8px;align-items:center}
+.pill{background:var(--card);border-radius:999px;padding:7px 12px;box-shadow:var(--shadow);font-weight:800;font-size:.9rem}
+.iconbtn{border:0;background:var(--card);width:40px;height:40px;border-radius:50%;box-shadow:var(--shadow);font-size:1.05rem;cursor:pointer;color:var(--ink)}
+.iconbtn.sm{width:34px;height:34px;font-size:.85rem;box-shadow:none;background:#f8f1f5;flex:none}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:14px;margin-bottom:12px}
+.card h3{margin:0 0 10px;font-size:1rem}
+.view{display:none}.view.active{display:block;animation:fade .25s}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}}
+.btn{border:0;border-radius:999px;padding:12px 20px;font:inherit;font-weight:800;background:var(--pink);color:#fff;cursor:pointer;box-shadow:0 4px 0 var(--pink-d);transition:transform .08s}
+.btn:active{transform:translateY(2px);box-shadow:0 2px 0 var(--pink-d)}
+.btn.ghost{background:#f4eef2;color:var(--ink);box-shadow:0 4px 0 #e2d6de}
+.btn.mint{background:var(--mint-d);box-shadow:0 4px 0 #5fb596}
+.btn.danger{background:#ff8a8a;box-shadow:0 4px 0 #e06666}
+.btn.small{padding:8px 14px;font-size:.85rem}
+.btn.big{min-width:150px;padding:16px 24px;font-size:1.1rem}
+.btn.round{width:52px;height:52px;padding:0;font-size:1.1rem}
+.btn:disabled{opacity:.45;cursor:default}
+.link{background:none;border:0;color:var(--pink-d);font:inherit;font-weight:700;cursor:pointer;display:block;margin:10px auto 0;text-decoration:none;text-align:center}
+.muted{color:var(--soft)}.center{text-align:center}.small{font-size:.8rem}
+.row{display:flex;gap:8px;align-items:center}
+input,select{font:inherit;border:2px solid #f1e4ec;background:#fffafc;border-radius:14px;padding:10px 12px;color:var(--ink);min-width:0}
+/* room */
+.roomwrap{position:relative;margin-bottom:12px}
+#room{width:100%;height:auto;display:block;border-radius:var(--r);box-shadow:var(--shadow)}
+#fx{position:absolute;inset:0;overflow:hidden;pointer-events:none;border-radius:var(--r)}
+.editing #room{touch-action:none;outline:3px dashed var(--pink);outline-offset:3px}
+.editing .fitem{cursor:grab}
+.arrange{position:absolute;top:8px;right:8px;border:0;border-radius:999px;background:rgba(255,255,255,.88);font:inherit;font-weight:700;font-size:.8rem;padding:6px 12px;cursor:pointer;color:var(--ink)}
+.confetti{position:absolute;top:-8px;width:8px;height:12px;border-radius:2px;animation:fall 1.6s ease-in forwards}
+@keyframes fall{to{transform:translateY(260px) rotate(600deg);opacity:0}}
+#room .wall{fill:var(--wall)}#room .floor{fill:var(--floor)}#room .sky{fill:var(--sky)}#room .trim{fill:var(--trim)}#room .trimline{stroke:var(--trim);stroke-width:4}
+.night-only{display:none}#room.dark .night-only{display:inline}#room.dark .day-only{display:none}
+.cbody{fill:#fff7ec;stroke:#e8cdb8;stroke-width:2}
+#char{transform-box:fill-box;transform-origin:50% 100%}
+#room[data-state=idle] #char{animation:breathe 3.2s ease-in-out infinite}
+#room[data-state=study] #char{animation:bob 1.4s ease-in-out infinite}
+#room[data-state=relax] #char{animation:sway 4s ease-in-out infinite}
+#room[data-state=celebrate] #char{animation:jump .5s ease-out 3}
+@keyframes breathe{50%{transform:scale(1.03,.97)}}
+@keyframes bob{50%{transform:translateY(2px) rotate(-1.5deg)}}
+@keyframes sway{25%{transform:rotate(2deg)}75%{transform:rotate(-2deg)}}
+@keyframes jump{40%{transform:translateY(-24px) scale(.95,1.05)}80%{transform:translateY(0) scale(1.06,.94)}}
+.eyes-open ellipse{transform-box:fill-box;transform-origin:center;animation:blink 4.5s infinite}
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+.eyes-closed,.zzz,.only-study,.only-relax{display:none}
+#room[data-state=relax] .eyes-open{display:none}
+#room[data-state=relax] .eyes-closed,#room[data-state=relax] .zzz,#room[data-state=relax] .only-relax,#room[data-state=study] .only-study{display:inline}
+#room[data-state=study] .eyes-open{transform:translateY(3px)}
+.zzz text{font:800 12px sans-serif;fill:#a08fa0;animation:pulse 2.4s ease-in-out infinite}
+.zzz text:nth-child(2){animation-delay:.4s}.zzz text:nth-child(3){animation-delay:.8s}
+.steam{animation:pulse 2s infinite}.tw{animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
+/* timer */
+.timer{text-align:center}
+.seg{display:flex;background:#f6eef3;border-radius:999px;padding:4px;gap:4px;margin:0 auto 6px;width:fit-content}
+.seg button{border:0;background:none;font:inherit;font-weight:700;color:var(--soft);padding:8px 14px;border-radius:999px;cursor:pointer}
+.seg button.on{background:#fff;color:var(--ink);box-shadow:0 2px 6px rgba(155,110,130,.15)}
+.seg.wide{width:100%}.seg.wide button{flex:1;padding:8px 4px;font-size:.85rem}
+.ring{position:relative;width:min(62vw,230px);aspect-ratio:1;margin:8px auto}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:14;stroke-linecap:round}
+.ring .track{stroke:#f6eaf0}
+.ring .prog{stroke:var(--pink);stroke-dasharray:552.92;transition:stroke-dashoffset .3s linear,stroke .3s}
+.ring.break .prog{stroke:var(--mint-d)}.ring.long .prog{stroke:#9aa1e0}.ring.over .prog{stroke:#ffd166}
+.ringtxt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.time{font-size:clamp(2.4rem,11vw,3.2rem);font-weight:800;font-variant-numeric:tabular-nums}
+.phase{font-weight:700;color:var(--soft)}.sess{font-size:.8rem;color:var(--soft)}
+.tasksel{display:flex;align-items:center;justify-content:center;gap:8px;font-size:.85rem;color:var(--soft);margin:6px 0 14px}
+.tasksel select{max-width:60%;padding:6px 10px}
+.controls{display:flex;align-items:center;justify-content:center;gap:14px}
+/* tasks */
+#taskInput{flex:1}
+.tasks{list-style:none;padding:0;margin:0}
+.task{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:10px 12px;margin-bottom:8px}
+.task input[type=checkbox]{appearance:none;width:24px;height:24px;padding:0;border-radius:50%;border:2.5px solid var(--pink);flex:none;cursor:pointer;display:grid;place-content:center;background:#fff}
+.task input:checked{background:var(--pink)}.task input:checked::after{content:"✓";color:#fff;font-weight:900;font-size:14px}
+.tt{flex:1;min-width:0}.ttl{font-weight:700;overflow-wrap:anywhere}
+.task.done .ttl{text-decoration:line-through;color:var(--soft)}
+.banner{background:linear-gradient(90deg,var(--mint),var(--lav));border-radius:18px;padding:12px;text-align:center;font-weight:800;margin-bottom:10px}
+/* shop */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-top:10px}
+.item{background:var(--card);border-radius:18px;box-shadow:var(--shadow);padding:12px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;border:2px solid transparent;font:inherit;color:inherit}
+.item.owned{border-color:#dff3ea}
+.item .icon{font-size:2rem;height:44px;display:flex;align-items:center}
+.swatch{width:56px;height:44px;border-radius:12px}
+.iname{font-weight:700;font-size:.9rem;min-height:2.4em;display:flex;align-items:center}
+.cafe{grid-column:1/-1}.drinks{display:flex;gap:8px;margin:10px 0}.drinks .item{flex:1;cursor:pointer}
+/* stats */
+.stats4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
+.stats4 b{display:block;font-size:1.1rem}.stats4 span{font-size:.75rem;color:var(--soft)}
+.bars{display:flex;gap:6px;height:150px}
+.bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.bt{flex:1;width:70%;position:relative}
+.bf{position:absolute;left:0;right:0;bottom:0;border-radius:8px 8px 4px 4px;background:linear-gradient(var(--pink),#ffc9ce);min-height:4px}
+.bv{font-size:.62rem;color:var(--soft);height:1.1em}.bl{font-size:.7rem;color:var(--soft)}
+table.rec{width:100%;border-collapse:collapse;font-size:.85rem}
+.rec th{color:var(--soft);text-align:left;padding:4px}.rec td{padding:6px 4px;border-top:1px solid #f4eaf0}
+/* nav, toast, dialogs, overlays */
+.tabs{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom));width:min(452px,calc(100% - 24px));display:flex;background:var(--card);border-radius:24px;box-shadow:var(--shadow);padding:6px;z-index:20}
+.tabs button{flex:1;border:0;background:none;font:inherit;font-size:.75rem;font-weight:700;color:var(--soft);display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;border-radius:18px;cursor:pointer}
+.tabs button span:first-child{font-size:1.25rem}.tabs button.active{background:var(--peach);color:var(--ink)}
+#toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translate(-50%,20px);background:var(--ink);color:#fff;padding:10px 16px;border-radius:999px;font-weight:700;font-size:.9rem;opacity:0;pointer-events:none;transition:.25s;z-index:80;max-width:90%;text-align:center}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+dialog{border:0;border-radius:24px;padding:20px;width:min(360px,calc(100% - 32px));color:var(--ink);background:#fff;box-shadow:0 20px 50px rgba(90,60,80,.25)}
+dialog::backdrop{background:rgba(91,75,90,.35)}
+dialog h3{margin:0 0 8px}#dlgMsg{margin:0 0 14px;line-height:1.45;white-space:pre-line}
+#dlgInput{width:100%;margin-bottom:14px}
+.dlgbtns{display:flex;gap:8px;flex-wrap:wrap}.dlgbtns .btn{flex:1 1 auto}
+dialog.settings{max-height:86vh;overflow:auto}
+.sethead{display:flex;justify-content:space-between;align-items:center}
+.field{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 0}
+.field input[type=number]{width:84px;text-align:center}
+.field input[type=range]{flex:1;max-width:170px;accent-color:var(--pink);padding:0;border:0}
+.sw input{appearance:none;width:46px;height:28px;padding:0;border:0;border-radius:999px;background:#eadfe6;position:relative;cursor:pointer;transition:.2s;flex:none}
+.sw input::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:.2s}
+.sw input:checked{background:var(--mint-d)}.sw input:checked::after{left:21px}
+h4{margin:16px 0 2px;color:var(--soft);font-size:.78rem;text-transform:uppercase;letter-spacing:.06em}
+.warn{background:#fff4d6;border-radius:12px;padding:8px 10px;font-size:.85rem;margin:4px 0}
+.col{display:flex;flex-direction:column;gap:10px}
+.qbtn{width:26px;height:26px;border-radius:50%;border:0;background:var(--lav);font-weight:800;cursor:pointer;margin-right:8px;color:var(--ink)}
+#lock{position:fixed;inset:0;z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:linear-gradient(160deg,#e7e4fa,#ffe3d3);text-align:center;padding:24px}
+#lock.on{display:flex}
+.locktime{font-size:clamp(3.5rem,18vw,5.5rem);font-weight:800;font-variant-numeric:tabular-nums}
+.lockpet{font-size:3rem;animation:bobh 1.4s ease-in-out infinite}@keyframes bobh{50%{transform:translateY(5px)}}
+#dup{position:fixed;inset:0;z-index:70;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(255,246,240,.97);padding:24px;text-align:center;font-weight:700}
+#dup.on{display:flex}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand">🌱 <span data-i18n="APP"></span></div>
+  <div class="hdr-r"><span class="pill" id="streakPill">🔥 0</span><span class="pill" id="coinPill">🪙 0</span><button class="iconbtn" id="btnSettings" aria-label="Settings">⚙️</button></div>
+</header>
+
+<section class="view active" id="v-focus">
+  <div class="roomwrap" id="roomwrap">
+    <svg id="room" viewBox="0 0 360 240" data-state="idle" role="img" aria-label="Mochi's room">
+      <rect class="wall" width="360" height="192"/>
+      <rect class="floor" y="192" width="360" height="48"/>
+      <rect class="trim" y="188" width="360" height="6"/>
+      <g>
+        <rect class="trim" x="34" y="28" width="84" height="70" rx="8"/>
+        <rect class="sky" x="40" y="34" width="72" height="58" rx="5"/>
+        <g class="day-only"><ellipse cx="64" cy="58" rx="13" ry="6" fill="#fff"/><ellipse cx="74" cy="54" rx="10" ry="7" fill="#fff"/><ellipse cx="96" cy="78" rx="8" ry="4" fill="#fff" opacity=".8"/></g>
+        <g class="night-only"><circle cx="94" cy="48" r="8" fill="#fff6c7"/><circle cx="54" cy="44" r="1.5" fill="#fff"/><circle cx="66" cy="72" r="1.2" fill="#fff"/><circle cx="84" cy="82" r="1.4" fill="#fff"/><circle cx="50" cy="82" r="1" fill="#fff"/></g>
+        <line class="trimline" x1="76" y1="34" x2="76" y2="92"/><line class="trimline" x1="40" y1="63" x2="112" y2="63"/>
+      </g>
+      <g id="furn"></g>
+      <g transform="translate(180 197)">
+        <g id="char">
+          <ellipse class="cbody" cx="-33" cy="-26" rx="7" ry="9"/><ellipse class="cbody" cx="33" cy="-26" rx="7" ry="9"/>
+          <ellipse class="cbody" cx="0" cy="-34" rx="34" ry="32"/>
+          <path d="M0 -64 q-3 -10 2 -16" stroke="#6dbb98" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <ellipse cx="-6" cy="-79" rx="7" ry="4" fill="#8fd6b6" transform="rotate(-25 -6 -79)"/>
+          <ellipse cx="9" cy="-80" rx="7" ry="4" fill="#7fc8a9" transform="rotate(25 9 -80)"/>
+          <g class="eyes-open"><ellipse cx="-11" cy="-38" rx="3.5" ry="4" fill="#5b4b5a"/><ellipse cx="11" cy="-38" rx="3.5" ry="4" fill="#5b4b5a"/><circle cx="-10" cy="-39.5" r="1.2" fill="#fff"/><circle cx="12" cy="-39.5" r="1.2" fill="#fff"/></g>
+          <g class="eyes-closed"><path d="M-15 -37 q4 3 8 0 M7 -37 q4 3 8 0" stroke="#5b4b5a" stroke-width="2" fill="none" stroke-linecap="round"/></g>
+          <ellipse cx="-20" cy="-29" rx="6" ry="4" fill="#ffb3ba" opacity=".8"/><ellipse cx="20" cy="-29" rx="6" ry="4" fill="#ffb3ba" opacity=".8"/>
+          <path d="M-4 -30 q4 4 8 0" stroke="#5b4b5a" stroke-width="2" fill="none" stroke-linecap="round"/>
+          <g id="outfit"></g>
+          <g class="zzz"><text x="26" y="-62">z</text><text x="34" y="-76">z</text><text x="44" y="-90">Z</text></g>
+        </g>
+      </g>
+      <g>
+        <rect x="118" y="189" width="124" height="10" rx="4" fill="#d9a679"/>
+        <rect x="126" y="199" width="7" height="38" rx="2" fill="#c49067"/><rect x="227" y="199" width="7" height="38" rx="2" fill="#c49067"/>
+        <rect x="136" y="177" width="12" height="12" rx="2" fill="#c7ceea"/>
+        <line x1="139" y1="177" x2="137" y2="167" stroke="#f0727e" stroke-width="2" stroke-linecap="round"/><line x1="144" y1="177" x2="147" y2="169" stroke="#7fc8a9" stroke-width="2" stroke-linecap="round"/>
+        <g class="only-study"><path d="M162 189 Q171 182 180 186 Q189 182 198 189 Z" fill="#fff" stroke="#c7ceea" stroke-width="1.5"/><line x1="180" y1="186" x2="180" y2="189" stroke="#c7ceea" stroke-width="1.5"/></g>
+        <g class="only-relax"><rect x="200" y="175" width="14" height="14" rx="3" fill="#fff" stroke="#e8cdb8" stroke-width="1.5"/><path d="M214 179 q6 3 0 7" stroke="#e8cdb8" stroke-width="1.5" fill="none"/><rect id="drinkTop" x="202" y="177" width="10" height="3" rx="1"/><path class="steam" d="M204 171 q-3 -5 0 -9 M210 171 q3 -5 0 -9" stroke="#c9b8c6" stroke-width="1.5" fill="none"/></g>
+      </g>
+    </svg>
+    <div id="fx"></div>
+    <button class="arrange" id="btnArrange" data-i18n="BTN_ARRANGE"></button>
+  </div>
+  <div class="card timer">
+    <div class="seg" id="modeSeg"><button data-mode="pomo" data-i18n="MODE_POMO"></button><button data-mode="watch" data-i18n="MODE_WATCH"></button></div>
+    <div class="ring" id="ring"><svg viewBox="0 0 200 200"><circle class="track" cx="100" cy="100" r="88"/><circle class="prog" id="ringProg" cx="100" cy="100" r="88"/></svg>
+      <div class="ringtxt"><div class="time" id="time">25:00</div><div class="phase" id="phaseLbl"></div><div class="sess" id="sessLbl"></div></div></div>
+    <label class="tasksel"><span data-i18n="LBL_TASK"></span><select id="taskSel"></select></label>
+    <div class="controls"><button class="btn ghost round" id="btnStop" aria-label="Stop">■</button><button class="btn big" id="btnMain"></button><button class="btn ghost round" id="btnReset" aria-label="Reset">↺</button></div>
+    <button class="link" id="btnSwitch"></button>
+  </div>
+</section>
+
+<section class="view" id="v-tasks">
+  <div class="card"><form id="taskForm" class="row"><input id="taskInput" maxlength="80" autocomplete="off" data-i18n-ph="TASK_PH"><button class="btn" data-i18n="BTN_ADD"></button></form></div>
+  <div id="allDone" class="banner" data-i18n="MSG_ALL_DONE" hidden></div>
+  <ul id="taskList" class="tasks"></ul>
+  <p id="noTasks" class="muted center" data-i18n="MSG_NO_TASKS"></p>
+</section>
+
+<section class="view" id="v-shop">
+  <div class="seg wide" id="shopSeg"><button data-tab="furn" data-i18n="SHOP_FURN"></button><button data-tab="outfit" data-i18n="SHOP_OUTFIT"></button><button data-tab="theme" data-i18n="SHOP_THEME"></button><button data-tab="cafe" data-i18n="SHOP_CAFE"></button></div>
+  <div class="grid" id="shopGrid"></div>
+</section>
+
+<section class="view" id="v-stats">
+  <div class="card"><h3 data-i18n="ST_TODAY"></h3><div class="stats4">
+    <div><b id="stFocus"></b><span data-i18n="ST_FOCUS"></span></div><div><b id="stBreak"></b><span data-i18n="ST_BREAK"></span></div>
+    <div><b id="stSess"></b><span data-i18n="ST_SESSIONS"></span></div><div><b id="stStreak"></b><span data-i18n="ST_STREAK"></span></div></div></div>
+  <div class="card"><h3 data-i18n="ST_WEEK"></h3><div class="bars" id="bars"></div></div>
+  <div class="card"><h3 data-i18n="ST_MONTH"></h3><p class="muted" id="monthSum"></p>
+    <table class="rec"><thead><tr><th>📅</th><th data-i18n="ST_FOCUS"></th><th data-i18n="ST_BREAK"></th><th data-i18n="ST_SESSIONS"></th></tr></thead><tbody id="monthRows"></tbody></table></div>
+</section>
+</div>
+
+<nav class="tabs" id="tabs">
+  <button data-view="focus" class="active"><span>⏱️</span><span data-i18n="TAB_FOCUS"></span></button>
+  <button data-view="tasks"><span>📝</span><span data-i18n="TAB_TASKS"></span></button>
+  <button data-view="shop"><span>🛍️</span><span data-i18n="TAB_SHOP"></span></button>
+  <button data-view="stats"><span>📊</span><span data-i18n="TAB_STATS"></span></button>
+</nav>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<dialog id="dlg"><h3 id="dlgTitle"></h3><p id="dlgMsg"></p><input id="dlgInput" maxlength="80" hidden><div class="dlgbtns" id="dlgBtns"></div></dialog>
+
+<dialog id="settings" class="settings">
+  <div class="sethead"><h3 data-i18n="SET_TITLE"></h3><button class="iconbtn sm" id="setClose" aria-label="Close">✕</button></div>
+  <label class="field"><span data-i18n="SET_LANG"></span><select id="sLang"></select></label>
+  <h4 data-i18n="SET_TIMER"></h4>
+  <label class="field"><span data-i18n="SET_FOCUS"></span><input type="number" id="sFocus" min="1" max="180" inputmode="numeric"></label>
+  <label class="field"><span data-i18n="SET_BREAK"></span><input type="number" id="sBreak" min="1" max="60" inputmode="numeric"></label>
+  <label class="field"><span data-i18n="SET_LONG"></span><input type="number" id="sLong" min="1" max="90" inputmode="numeric"></label>
+  <label class="field"><span data-i18n="SET_EVERY"></span><input type="number" id="sEvery" min="1" max="12" inputmode="numeric"></label>
+  <label class="field sw"><span data-i18n="SET_AWAKE"></span><input type="checkbox" id="sAwake"></label>
+  <div class="field sw"><span data-i18n="SET_FORCE"></span><span class="row"><button type="button" class="qbtn" id="forceHelp">?</button><input type="checkbox" id="sForce" aria-label="Force mode"></span></div>
+  <h4 data-i18n="SET_SOUND"></h4>
+  <label class="field"><span data-i18n="SET_VOLUME"></span><input type="range" id="sVol" min="0" max="1" step="0.05"></label>
+  <label class="field sw"><span data-i18n="SET_MUSIC"></span><input type="checkbox" id="sMusic"></label>
+  <label class="field sw"><span data-i18n="SET_SFX"></span><input type="checkbox" id="sSfx"></label>
+  <label class="field sw"><span data-i18n="SET_NOTIFY"></span><input type="checkbox" id="sNotify"></label>
+  <p class="warn" id="notifyWarn" data-i18n="MSG_NOTIFY_BLOCKED" hidden></p>
+  <h4 data-i18n="SET_DATA"></h4>
+  <div class="col"><button class="btn ghost" id="btnExport" data-i18n="BTN_EXPORT"></button><button class="btn ghost" id="btnImport" data-i18n="BTN_IMPORT"></button><button class="btn danger" id="btnDeleteAll" data-i18n="BTN_DELETE_ALL"></button></div>
+  <p class="muted small center" data-i18n="SET_ABOUT"></p>
+  <a class="link" id="feedbackLink" target="_blank" rel="noopener" data-i18n="BTN_FEEDBACK"></a>
+</dialog>
+
+<div id="lock"><div class="lockphase muted" id="lockPhase"></div><div class="locktime" id="lockTime"></div><div class="lockpet">🌱📖</div>
+  <p data-i18n="LOCK_SUB"></p><div class="row"><button class="btn ghost" id="btnGiveUp" data-i18n="BTN_GIVE_UP"></button><button class="iconbtn" id="btnLockHelp">?</button></div></div>
+<div id="dup"><p data-i18n="MSG_OTHER_TAB"></p><button class="btn" id="btnUseHere" data-i18n="BTN_USE_HERE"></button></div>
+<input type="file" id="importFile" accept="application/json,.json" hidden>
+
+<script>
+'use strict';
+const REPO='https://github.com/thanmayroobanathans/neh';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+
+/* ================= Localization (every UI string is keyed) ================= */
+const LANGS={en:'English',hi:'हिन्दी'};
+const I18N={
+en:{APP:'Pomo Nook',TAB_FOCUS:'Focus',TAB_TASKS:'Quests',TAB_SHOP:'Shop',TAB_STATS:'Stats',
+MODE_POMO:'Pomodoro',MODE_WATCH:'Stopwatch',PH_FOCUS:'Focus time',PH_BREAK:'Short break',PH_LONG:'Long break',PH_WATCH:'Stopwatch',PH_OVER:'Bonus focus',
+LBL_SESSION:'Session {n} of {m}',BTN_START:'Start',BTN_PAUSE:'Pause',BTN_RESUME:'Resume',BTN_SWITCH_BREAK:'Take a break',BTN_SWITCH_FOCUS:'Back to focus',
+BTN_START_BREAK:'Start break',BTN_START_LONG:'Start long break',BTN_START_FOCUS:'Start focus',BTN_CONTINUE:'Keep going',BTN_LATER:'Later',
+BTN_YES:'Yes',BTN_CANCEL:'Cancel',BTN_OK:'OK',BTN_SAVE:'Save',BTN_DELETE:'Delete',
+MSG_STOP_CONFIRM:'Stop this timer? Focus time so far will still be saved.',MSG_RESET_CONFIRM:'Reset the session count back to 1?',
+MSG_SWITCH_TO_BREAK:'End focus early and start a break?',MSG_SWITCH_TO_FOCUS:'End the break and start focusing?',MSG_STOP_FIRST:'Stop the timer first.',
+MSG_FOCUS_DONE:'Focus session complete! 🎉 Time for a break?',MSG_BREAK_DONE:'Break is over. Ready to focus again?',
+MSG_EARNED:'+{n} coins',MSG_DAILY_REWARD:'Daily reward: +{n} coins · {s}-day streak 🔥',MSG_CLOCK_WARNING:'Your device clock looks off, so rewards are paused for now.',
+LBL_TASK:'Working on',LBL_NONE:'— no quest —',TASK_PH:'New quest…',BTN_ADD:'Add',MSG_DELETE_TASK:'Delete this quest?',MSG_EDIT_TASK:'Edit quest',
+MSG_ALL_DONE:'All quests completed! ✨',MSG_NO_TASKS:'No quests yet. Add one above!',
+SHOP_FURN:'Furniture',SHOP_OUTFIT:'Outfits',SHOP_THEME:'Themes',SHOP_CAFE:'Café',BTN_PLACE:'Place',BTN_HIDE:'Hide',BTN_EQUIP:'Wear',LBL_EQUIPPED:'Wearing',BTN_APPLY:'Use',LBL_APPLIED:'In use',
+MSG_NOT_ENOUGH:'You need {n} more coins. Keep focusing!',MSG_BOUGHT:'{x} is yours!',BTN_ARRANGE:'Arrange',BTN_DONE:'Done',MSG_ARRANGE_HINT:'Drag items to move them.',
+CAFE_DESC:'Pick one free drink a day. Mochi sips it during breaks.',CAFE_FREE:'Today\'s drink is free (+3 coins).',CAFE_CLAIMED:'Come back tomorrow for another treat.',
+MSG_CAFE:'Enjoy your {x}! +3 coins',BTN_SHARE:'Share today\'s progress',SHARE_TEXT:'I focused {m} today in Pomo Nook ({s} sessions) 🌱',MSG_COPIED:'Copied to clipboard',
+ST_TODAY:'Today',ST_FOCUS:'Focus',ST_BREAK:'Break',ST_SESSIONS:'Sessions',ST_STREAK:'Streak',ST_WEEK:'Last 7 days',ST_MONTH:'This month',ST_DAYS:'{n} active days',ST_EMPTY:'No records this month yet.',
+SET_TITLE:'Settings',SET_LANG:'Language',SET_TIMER:'Timer',SET_FOCUS:'Focus (min)',SET_BREAK:'Short break (min)',SET_LONG:'Long break (min)',SET_EVERY:'Long break every (sessions)',
+SET_SOUND:'Sound',SET_VOLUME:'Volume',SET_MUSIC:'Lo-fi music (while timer runs)',SET_SFX:'Sound effects',SET_NOTIFY:'Notifications',SET_AWAKE:'Keep screen on while running',SET_FORCE:'Force mode',
+SET_DATA:'Your data',BTN_EXPORT:'Export backup',BTN_IMPORT:'Import backup',BTN_DELETE_ALL:'Delete all data',SET_ABOUT:'Free & open source. No ads, no tracking. Your data stays in this browser.',BTN_FEEDBACK:'Send feedback',
+MSG_NOTIFY_BLOCKED:'Notifications are off or blocked, so you won\'t be alerted when a timer ends while this tab is in the background. You can allow them in your browser\'s site settings.',
+FORCE_HELP_TITLE:'How Force mode works',FORCE_HELP:'When a focus session starts, the app goes full screen and shows only the timer. There is no pause button. Leaving the tab counts as a distraction, and quitting early asks you to confirm. Everything stays on your device.',
+LOCK_SUB:'Stay with it. Mochi is studying too.',BTN_GIVE_UP:'Give up',MSG_GIVE_UP:'Give up this session? Focus time so far is still saved.',MSG_LEFT_TAB:'You left during focus ({n} today).',
+MSG_CORRUPT:'Your saved data looks damaged. Restore the last backup, or start fresh?',BTN_RESTORE:'Restore backup',BTN_RESET_DATA:'Start fresh',
+MSG_IMPORT_CONFIRM:'Replace your current progress with this backup ({c} coins, {d} days of records)?',MSG_IMPORT_BAD:'That file isn\'t a valid Pomo Nook backup.',MSG_IMPORT_OK:'Backup restored!',
+MSG_DELETE_ALL:'This permanently deletes your quests, coins, room and records from this browser. Export a backup first if you might want them back.',
+MSG_OTHER_TAB:'Pomo Nook is open in another tab.',BTN_USE_HERE:'Use here',REVIEW_Q:'Enjoying Pomo Nook so far?',REVIEW_YES:'Love it ⭐',REVIEW_NO:'Could be better'},
+hi:{APP:'Pomo Nook',TAB_FOCUS:'फ़ोकस',TAB_TASKS:'क्वेस्ट',TAB_SHOP:'दुकान',TAB_STATS:'आँकड़े',
+MODE_POMO:'पोमोडोरो',MODE_WATCH:'स्टॉपवॉच',PH_FOCUS:'फ़ोकस का समय',PH_BREAK:'छोटा ब्रेक',PH_LONG:'लंबा ब्रेक',PH_WATCH:'स्टॉपवॉच',PH_OVER:'बोनस फ़ोकस',
+LBL_SESSION:'सत्र {n} / {m}',BTN_START:'शुरू करें',BTN_PAUSE:'रोकें',BTN_RESUME:'जारी रखें',BTN_SWITCH_BREAK:'ब्रेक लें',BTN_SWITCH_FOCUS:'फ़ोकस पर लौटें',
+BTN_START_BREAK:'ब्रेक शुरू करें',BTN_START_LONG:'लंबा ब्रेक शुरू करें',BTN_START_FOCUS:'फ़ोकस शुरू करें',BTN_CONTINUE:'और जारी रखें',BTN_LATER:'बाद में',
+BTN_YES:'हाँ',BTN_CANCEL:'रद्द करें',BTN_OK:'ठीक है',BTN_SAVE:'सहेजें',BTN_DELETE:'हटाएँ',
+MSG_STOP_CONFIRM:'टाइमर बंद करें? अब तक का फ़ोकस समय सहेजा जाएगा।',MSG_RESET_CONFIRM:'सत्र की गिनती वापस 1 पर करें?',
+MSG_SWITCH_TO_BREAK:'फ़ोकस जल्दी खत्म करके ब्रेक शुरू करें?',MSG_SWITCH_TO_FOCUS:'ब्रेक खत्म करके फ़ोकस शुरू करें?',MSG_STOP_FIRST:'पहले टाइमर बंद करें।',
+MSG_FOCUS_DONE:'फ़ोकस सत्र पूरा हुआ! 🎉 ब्रेक लें?',MSG_BREAK_DONE:'ब्रेक खत्म। फिर से फ़ोकस के लिए तैयार?',
+MSG_EARNED:'+{n} सिक्के',MSG_DAILY_REWARD:'दैनिक इनाम: +{n} सिक्के · लगातार {s} दिन 🔥',MSG_CLOCK_WARNING:'आपके डिवाइस की घड़ी सही नहीं लगती, इसलिए इनाम अभी रुके हुए हैं।',
+LBL_TASK:'अभी का काम',LBL_NONE:'— कोई क्वेस्ट नहीं —',TASK_PH:'नया क्वेस्ट…',BTN_ADD:'जोड़ें',MSG_DELETE_TASK:'यह क्वेस्ट हटाएँ?',MSG_EDIT_TASK:'क्वेस्ट बदलें',
+MSG_ALL_DONE:'सभी क्वेस्ट पूरे हुए! ✨',MSG_NO_TASKS:'अभी कोई क्वेस्ट नहीं। ऊपर एक जोड़ें!',
+SHOP_FURN:'फ़र्नीचर',SHOP_OUTFIT:'पोशाक',SHOP_THEME:'थीम',SHOP_CAFE:'कैफ़े',BTN_PLACE:'रखें',BTN_HIDE:'छिपाएँ',BTN_EQUIP:'पहनें',LBL_EQUIPPED:'पहना है',BTN_APPLY:'लगाएँ',LBL_APPLIED:'लगी है',
+MSG_NOT_ENOUGH:'आपको {n} और सिक्के चाहिए। फ़ोकस करते रहें!',MSG_BOUGHT:'{x} अब आपका है!',BTN_ARRANGE:'सजाएँ',BTN_DONE:'हो गया',MSG_ARRANGE_HINT:'चीज़ें खिसकाने के लिए खींचें।',
+CAFE_DESC:'रोज़ एक मुफ़्त ड्रिंक चुनें। मोची ब्रेक में इसे पीता है।',CAFE_FREE:'आज की ड्रिंक मुफ़्त है (+3 सिक्के)।',CAFE_CLAIMED:'कल एक और ट्रीट के लिए आइए।',
+MSG_CAFE:'{x} का मज़ा लें! +3 सिक्के',BTN_SHARE:'आज की प्रगति शेयर करें',SHARE_TEXT:'आज मैंने Pomo Nook में {m} फ़ोकस किया ({s} सत्र) 🌱',MSG_COPIED:'क्लिपबोर्ड पर कॉपी हुआ',
+ST_TODAY:'आज',ST_FOCUS:'फ़ोकस',ST_BREAK:'ब्रेक',ST_SESSIONS:'सत्र',ST_STREAK:'लगातार दिन',ST_WEEK:'पिछले 7 दिन',ST_MONTH:'इस महीने',ST_DAYS:'{n} सक्रिय दिन',ST_EMPTY:'इस महीने अभी कोई रिकॉर्ड नहीं।',
+SET_TITLE:'सेटिंग्स',SET_LANG:'भाषा',SET_TIMER:'टाइमर',SET_FOCUS:'फ़ोकस (मिनट)',SET_BREAK:'छोटा ब्रेक (मिनट)',SET_LONG:'लंबा ब्रेक (मिनट)',SET_EVERY:'लंबा ब्रेक हर (सत्र)',
+SET_SOUND:'आवाज़',SET_VOLUME:'वॉल्यूम',SET_MUSIC:'लो-फ़ाई संगीत (टाइमर चलते समय)',SET_SFX:'साउंड इफ़ेक्ट',SET_NOTIFY:'सूचनाएँ',SET_AWAKE:'टाइमर चलते समय स्क्रीन चालू रखें',SET_FORCE:'फ़ोर्स मोड',
+SET_DATA:'आपका डेटा',BTN_EXPORT:'बैकअप निर्यात करें',BTN_IMPORT:'बैकअप आयात करें',BTN_DELETE_ALL:'सारा डेटा हटाएँ',SET_ABOUT:'मुफ़्त और ओपन सोर्स। कोई विज्ञापन नहीं, कोई ट्रैकिंग नहीं। आपका डेटा इसी ब्राउज़र में रहता है।',BTN_FEEDBACK:'सुझाव भेजें',
+MSG_NOTIFY_BLOCKED:'सूचनाएँ बंद हैं, इसलिए टैब पीछे होने पर टाइमर खत्म होने की सूचना नहीं मिलेगी। आप ब्राउज़र की साइट सेटिंग्स में इन्हें चालू कर सकते हैं।',
+FORCE_HELP_TITLE:'फ़ोर्स मोड कैसे काम करता है',FORCE_HELP:'फ़ोकस सत्र शुरू होते ही ऐप फ़ुल स्क्रीन हो जाता है और सिर्फ़ टाइमर दिखता है। इसमें रोकने का बटन नहीं होता। टैब छोड़ना ध्यान भटकना गिना जाता है, और बीच में छोड़ने से पहले पुष्टि माँगी जाती है। सब कुछ आपके डिवाइस पर ही रहता है।',
+LOCK_SUB:'लगे रहिए। मोची भी पढ़ाई कर रहा है।',BTN_GIVE_UP:'छोड़ दें',MSG_GIVE_UP:'यह सत्र छोड़ दें? अब तक का फ़ोकस समय फिर भी सहेजा जाएगा।',MSG_LEFT_TAB:'आप फ़ोकस के दौरान बाहर गए (आज {n} बार)।',
+MSG_CORRUPT:'आपका सहेजा डेटा खराब लगता है। पिछला बैकअप वापस लाएँ या नए सिरे से शुरू करें?',BTN_RESTORE:'बैकअप वापस लाएँ',BTN_RESET_DATA:'नए सिरे से शुरू करें',
+MSG_IMPORT_CONFIRM:'अपनी मौजूदा प्रगति को इस बैकअप ({c} सिक्के, {d} दिनों के रिकॉर्ड) से बदलें?',MSG_IMPORT_BAD:'यह फ़ाइल सही Pomo Nook बैकअप नहीं है।',MSG_IMPORT_OK:'बैकअप वापस आ गया!',
+MSG_DELETE_ALL:'इससे इस ब्राउज़र से आपके क्वेस्ट, सिक्के, कमरा और रिकॉर्ड हमेशा के लिए हट जाएँगे। बाद में चाहिए हो सकते हैं, तो पहले बैकअप निर्यात करें।',
+MSG_OTHER_TAB:'Pomo Nook दूसरे टैब में खुला है।',BTN_USE_HERE:'यहाँ इस्तेमाल करें',REVIEW_Q:'Pomo Nook अब तक कैसा लगा?',REVIEW_YES:'बहुत पसंद है ⭐',REVIEW_NO:'और बेहतर हो सकता है'}
+};
+let S=null;
+function t(k,v){let s=(I18N[S&&S.settings.lang]||I18N.en)[k]??I18N.en[k]??k;if(v)for(const[a,b]of Object.entries(v))s=s.split('{'+a+'}').join(b);return s}
+function applyI18n(){$$('[data-i18n]').forEach(e=>e.textContent=t(e.dataset.i18n));$$('[data-i18n-ph]').forEach(e=>e.placeholder=t(e.dataset.i18nPh));document.documentElement.lang=S.settings.lang}
+
+/* ================= Catalog (all original art, all earnable) ================= */
+const FURN=[
+{id:'plant',icon:'🪴',price:0,zone:'floor',pos:{x:322,y:234},n:{en:'Little plant',hi:'छोटा पौधा'}},
+{id:'lamp',icon:'💡',price:40,zone:'floor',pos:{x:296,y:226},n:{en:'Floor lamp',hi:'फ़्लोर लैंप'}},
+{id:'poster',icon:'🖼️',price:50,zone:'wall',pos:{x:282,y:70},n:{en:'Heart poster',hi:'दिल वाला पोस्टर'}},
+{id:'rug',icon:'🧶',price:60,zone:'floor',pos:{x:180,y:228},n:{en:'Cloud rug',hi:'बादल गलीचा'}},
+{id:'clock',icon:'⏰',price:70,zone:'wall',pos:{x:226,y:52},n:{en:'Wall clock',hi:'दीवार घड़ी'}},
+{id:'lights',icon:'✨',price:80,zone:'wall',pos:{x:200,y:14},n:{en:'Fairy lights',hi:'झालर लाइटें'}},
+{id:'shelf',icon:'📚',price:120,zone:'floor',pos:{x:52,y:226},n:{en:'Bookshelf',hi:'किताबों की अलमारी'}},
+{id:'beanbag',icon:'🛋️',price:150,zone:'floor',pos:{x:96,y:236},n:{en:'Beanbag',hi:'बीनबैग'}},
+{id:'cat',icon:'🐱',price:300,zone:'floor',pos:{x:262,y:236},n:{en:'Sleepy cat',hi:'सोती बिल्ली'}}];
+const OUTFITS=[
+{id:'none',icon:'🙂',price:0,n:{en:'Just Mochi',hi:'सिर्फ़ मोची'}},{id:'bow',icon:'🎀',price:50,n:{en:'Ribbon bow',hi:'रिबन'}},
+{id:'beret',icon:'🎨',price:60,n:{en:'Beret',hi:'बेरे टोपी'}},{id:'scarf',icon:'🧣',price:70,n:{en:'Cozy scarf',hi:'गर्म मफ़लर'}},
+{id:'phones',icon:'🎧',price:90,n:{en:'Headphones',hi:'हेडफ़ोन'}},{id:'crown',icon:'👑',price:250,n:{en:'Tiny crown',hi:'छोटा मुकुट'}}];
+const THEMES=[
+{id:'peach',price:0,c:{wall:'#ffe3d3',floor:'#f2c6a8',sky:'#cfe8ff',trim:'#f7b9a0'},n:{en:'Peach',hi:'आड़ू'}},
+{id:'mint',price:100,c:{wall:'#dff5ea',floor:'#bfe0cc',sky:'#d4f0ff',trim:'#9ed6bb'},n:{en:'Mint',hi:'पुदीना'}},
+{id:'lavender',price:120,c:{wall:'#e7e4fa',floor:'#cbc6ea',sky:'#e0dcff',trim:'#b3abe0'},n:{en:'Lavender',hi:'लैवेंडर'}},
+{id:'sakura',price:150,c:{wall:'#ffe4ec',floor:'#f5c3d0',sky:'#ffd6e4',trim:'#f39ab3'},n:{en:'Sakura',hi:'सकुरा'}},
+{id:'night',price:200,c:{wall:'#3d3f6b',floor:'#2d2f52',sky:'#1c1d3a',trim:'#5a5d95',dark:true},n:{en:'Starry night',hi:'तारों भरी रात'}}];
+const DRINKS=[{id:'cocoa',icon:'☕',color:'#8b5e4a',n:{en:'Cocoa',hi:'कोको'}},{id:'matcha',icon:'🍵',color:'#8fbf6a',n:{en:'Matcha',hi:'माचा'}},{id:'chai',icon:'🫖',color:'#c98f5a',n:{en:'Masala chai',hi:'मसाला चाय'}}];
+const name=it=>it.n[S.settings.lang]||it.n.en;
+const BULB=['#ff9aa2','#fff1b8','#b5ead7','#c7ceea'];
+const ART={
+plant:'<path d="M-12 0 L-15 -20 L15 -20 L12 0Z" fill="#e9a07a"/><rect x="-17" y="-24" width="34" height="6" rx="3" fill="#f0b48f"/><ellipse cx="-9" cy="-36" rx="5" ry="13" fill="#7fc8a9" transform="rotate(-28 -9 -36)"/><ellipse cx="9" cy="-36" rx="5" ry="13" fill="#6dbb98" transform="rotate(28 9 -36)"/><ellipse cx="0" cy="-42" rx="5" ry="15" fill="#8fd6b6"/>',
+lamp:'<circle cx="0" cy="-82" r="34" fill="#fff6c7" opacity=".35"/><ellipse rx="14" ry="4" fill="#b9a7b6"/><rect x="-2" y="-82" width="4" height="82" fill="#b9a7b6"/><path d="M-17 -80 L-10 -102 L10 -102 L17 -80Z" fill="#fff1b8" stroke="#f2d98a" stroke-width="2"/>',
+poster:'<rect x="-22" y="-28" width="44" height="56" rx="4" fill="#fff" stroke="#e8cdb8" stroke-width="3"/><path d="M0 12 C-18 0 -14 -16 -4 -12 C-1 -11 0 -8 0 -6 C0 -8 1 -11 4 -12 C14 -16 18 0 0 12Z" fill="#ff9aa2"/>',
+rug:'<ellipse rx="74" ry="13" fill="#c7ceea"/><ellipse rx="58" ry="8" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="5 5"/>',
+clock:'<circle r="17" fill="#fff" stroke="#f0a6b0" stroke-width="3"/><line class="hh" y2="-8" stroke="#5b4b5a" stroke-width="2.5" stroke-linecap="round"/><line class="mh" y2="-12" stroke="#5b4b5a" stroke-width="1.6" stroke-linecap="round"/><circle r="1.8" fill="#f0727e"/>',
+lights:'<path d="M-70 0 Q0 26 70 0" fill="none" stroke="#b9a7b6" stroke-width="1.5"/>'+Array.from({length:9},(_,i)=>{const u=(i+.5)/9;return `<circle class="tw" style="animation-delay:${(i%3)*.6}s" cx="${(70*(2*u-1)).toFixed(1)}" cy="${(52*u*(1-u)+4).toFixed(1)}" r="4" fill="${BULB[i%4]}"/>`}).join(''),
+shelf:'<rect x="-32" y="-96" width="64" height="96" rx="5" fill="#c08a64"/><rect x="-27" y="-90" width="54" height="26" fill="#a8734f"/><rect x="-27" y="-60" width="54" height="26" fill="#a8734f"/><rect x="-27" y="-30" width="54" height="26" fill="#a8734f"/><rect x="-25" y="-86" width="6" height="22" fill="#ff9aa2"/><rect x="-18" y="-82" width="6" height="18" fill="#b5ead7"/><rect x="-11" y="-86" width="7" height="22" fill="#c7ceea"/><rect x="2" y="-70" width="18" height="6" fill="#ffdac1"/><rect x="-25" y="-56" width="7" height="22" fill="#fff1b8"/><rect x="-17" y="-54" width="6" height="20" fill="#ff9aa2"/><rect x="8" y="-56" width="6" height="22" fill="#b5ead7"/><rect x="15" y="-53" width="6" height="19" fill="#c7ceea"/><circle cx="-12" cy="-12" r="7" fill="#ffdac1"/><rect x="4" y="-24" width="16" height="20" fill="#ff9aa2" opacity=".8"/>',
+beanbag:'<path d="M-32 0 Q-40 -28 -10 -36 Q22 -42 32 -16 Q38 0 28 0Z" fill="#ffdac1" stroke="#f0b48f" stroke-width="2"/><path d="M-14 -22 Q0 -14 16 -22" fill="none" stroke="#f0b48f" stroke-width="2"/>',
+cat:'<path d="M18 -6 Q34 -8 30 -22" fill="none" stroke="#a89890" stroke-width="5" stroke-linecap="round"/><ellipse cx="2" cy="-10" rx="20" ry="11" fill="#b8a9a0"/><circle cx="-16" cy="-14" r="9" fill="#b8a9a0"/><path d="M-23 -19 L-22 -28 L-16 -22Z M-13 -21 L-9 -28 L-8 -19Z" fill="#b8a9a0"/><path d="M-21 -14 q2 2 4 0 M-14 -14 q2 2 4 0" stroke="#5b4b5a" stroke-width="1.2" fill="none"/><ellipse cx="-22" cy="-10" rx="2.5" ry="1.5" fill="#ffb3ba"/>'};
+const OUTFIT_ART={none:'',
+bow:'<path d="M14 -60 L4 -68 L4 -52Z M14 -60 L24 -68 L24 -52Z" fill="#ff8fab"/><circle cx="14" cy="-60" r="3.5" fill="#f06292"/>',
+beret:'<ellipse cx="-4" cy="-63" rx="24" ry="8" fill="#e57373"/><circle cx="-4" cy="-71" r="3" fill="#c95b5b"/>',
+scarf:'<path d="M-28 -14 Q0 -4 28 -14 L28 -6 Q0 4 -28 -6Z" fill="#8fc9a9"/><path d="M14 -8 L20 8 L10 8 L8 -6Z" fill="#7bb898"/>',
+phones:'<path d="M-34 -40 A34 34 0 0 1 34 -40" fill="none" stroke="#7c83c9" stroke-width="5"/><rect x="-41" y="-48" width="10" height="18" rx="5" fill="#9aa1e0"/><rect x="31" y="-48" width="10" height="18" rx="5" fill="#9aa1e0"/>',
+crown:'<path d="M-14 -62 L-14 -76 L-7 -69 L0 -80 L7 -69 L14 -76 L14 -62Z" fill="#ffd166" stroke="#f4b942" stroke-width="1.5"/>'};
+
+/* ================= State & persistence (checksummed, with backup) ================= */
+const guessLang=()=>((navigator.language||'en').slice(0,2) in LANGS)?navigator.language.slice(0,2):'en';
+function defaults(){return{v:1,coins:30,asked:false,
+settings:{lang:guessLang(),focus:25,brk:5,long:15,every:4,volume:.6,music:false,sfx:true,notify:false,awake:true,force:false},
+timer:{mode:'pomo',phase:'focus',status:'idle',startedAt:0,accMs:0,durMs:25*60000,cycle:1,over:false,taskId:null},
+tasks:[],days:{},streak:{count:0,last:null},reward:{last:0,day:null,tz:null},lastSeen:0,cafe:{day:null,drink:'cocoa'},
+owned:['plant','none','peach'],placed:{plant:{x:322,y:234,on:true}},outfit:'none',theme:'peach'}}
+const KEY='pomonook.save',BAK='pomonook.backup',SALT='pomonook-v1',mem={};
+const store={get:k=>{try{return localStorage.getItem(k)}catch{return mem[k]??null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch{mem[k]=v}},del:k=>{try{localStorage.removeItem(k)}catch{delete mem[k]}}};
+function hash(s){let h=0x811c9dc5;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)}return(h>>>0).toString(16)}
+const pack=d=>{const j=JSON.stringify(d);return JSON.stringify({d:j,h:hash(SALT+j)})};
+function deepMerge(a,b){for(const k in b){const x=a[k],y=b[k];if(y&&typeof y==='object'&&!Array.isArray(y)&&x&&typeof x==='object'&&!Array.isArray(x))a[k]=deepMerge(x,y);else a[k]=y}return a}
+const migrate=d=>deepMerge(defaults(),d);
+function unpack(raw){if(!raw)return{ok:false,empty:true};try{const o=JSON.parse(raw);if(hash(SALT+o.d)!==o.h)return{ok:false};return{ok:true,data:migrate(JSON.parse(o.d))}}catch{return{ok:false}}}
+let saveT=null,active=true;
+function save(now){if(!active)return;clearTimeout(saveT);const w=()=>store.set(KEY,pack(S));if(now)w();else saveT=setTimeout(w,300)}
+const backup=()=>{if(active)store.set(BAK,pack(S))};
+
+/* ================= Helpers ================= */
+function h(tag,props={},...kids){const el=document.createElement(tag);for(const[k,v]of Object.entries(props)){if(k==='class')el.className=v;else if(k==='text')el.textContent=v;else if(k.startsWith('on'))el.addEventListener(k.slice(2),v);else if(v!==false&&v!=null)el.setAttribute(k,v===true?'':v)}for(const c of kids.flat()){if(c==null||c===false)continue;el.append(c.nodeType?c:document.createTextNode(c))}return el}
+const pad=n=>String(n).padStart(2,'0'),clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const dayKey=(d=new Date())=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const peek=k=>S.days[k]||{focus:0,brk:0,sessions:0,dist:0};
+const day=()=>S.days[dayKey()]??={focus:0,brk:0,sessions:0,dist:0};
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+function fmtS(sec){sec=Math.max(0,sec);const hh=Math.floor(sec/3600),m=Math.floor(sec%3600/60),s=sec%60;return hh?`${hh}:${pad(m)}:${pad(s)}`:`${pad(m)}:${pad(s)}`}
+function fmtHM(ms){const m=Math.floor(ms/60000);return m<60?m+'m':Math.floor(m/60)+'h '+(m%60)+'m'}
+const totalSessions=()=>Object.values(S.days).reduce((a,d)=>a+(d.sessions||0),0);
+function currentStreak(){const y=new Date();y.setDate(y.getDate()-1);return(S.streak.last===dayKey()||S.streak.last===dayKey(y))?S.streak.count:0}
+let toastT;function toast(m){const e=$('#toast');e.textContent=m;e.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('on'),2800)}
+
+/* ================= Dialogs (queued, promise-based) ================= */
+let dlgQ=Promise.resolve();
+function dialog({title='',msg='',buttons,input=null}){const run=()=>new Promise(res=>{const d=$('#dlg'),inp=$('#dlgInput'),box=$('#dlgBtns');
+ $('#dlgTitle').textContent=title;$('#dlgTitle').hidden=!title;$('#dlgMsg').textContent=msg;inp.hidden=input===null;if(input!==null)inp.value=input;box.replaceChildren();
+ buttons.forEach(([val,label,cls])=>box.append(h('button',{class:'btn '+(cls||''),onclick:()=>{d.close();res(input!==null&&val?{val,text:inp.value}:val)}},label)));
+ d.oncancel=e=>{e.preventDefault();d.close();res(null)};d.showModal();if(input!==null)setTimeout(()=>inp.focus(),50)});
+ const p=dlgQ.then(run);dlgQ=p.catch(()=>{});return p}
+const confirmDlg=k=>dialog({msg:t(k),buttons:[[false,t('BTN_CANCEL'),'ghost'],[true,t('BTN_YES')]]}).then(Boolean);
+const infoDlg=(title,msg)=>dialog({title,msg,buttons:[[true,t('BTN_OK')]]});
+
+/* ================= Sound: beeps, chime, procedural lo-fi (no audio files) ================= */
+const Snd={ctx:null};
+function unlockAudio(){if(Snd.ctx){if(Snd.ctx.state==='suspended')Snd.ctx.resume();return}const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;const c=new AC();Snd.ctx=c;
+ Snd.master=c.createGain();Snd.master.connect(c.destination);Snd.sfx=c.createGain();Snd.sfx.connect(Snd.master);Snd.mus=c.createGain();Snd.mus.gain.value=.5;Snd.mus.connect(Snd.master);applyVolume()}
+function applyVolume(){if(!Snd.ctx)return;Snd.master.gain.value=S.settings.volume;Snd.sfx.gain.value=S.settings.sfx?1:0}
+function tone(f,start,dur,{type='sine',gain=.2,dest=Snd.sfx,atk=.02}={}){const c=Snd.ctx;if(!c)return;const o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.value=f;
+ g.gain.setValueAtTime(.0001,start);g.gain.exponentialRampToValueAtTime(gain,start+atk);g.gain.exponentialRampToValueAtTime(.0001,start+dur);o.connect(g).connect(dest);o.start(start);o.stop(start+dur+.05)}
+const beep=(f=880,d=.1)=>Snd.ctx&&tone(f,Snd.ctx.currentTime,d,{type:'triangle',gain:.25});
+const chime=()=>{if(!Snd.ctx)return;const n=Snd.ctx.currentTime;[523.25,659.25,783.99,1046.5].forEach((f,i)=>tone(f,n+i*.14,.5,{gain:.22}))};
+const mtof=m=>440*2**((m-69)/12),CHORDS=[[53,57,60,64],[52,55,59,62],[50,53,57,60],[48,52,55,59]],PENTA=[72,74,76,79,81];
+const Music={timer:null,next:0,bar:0,noise:null,
+ set(on){on?this.start():this.stop()},
+ start(){unlockAudio();const c=Snd.ctx;if(!c||this.timer)return;this.next=c.currentTime+.1;this.bar=0;this.startNoise();this.timer=setInterval(()=>this.schedule(),400);this.schedule()},
+ stop(){clearInterval(this.timer);this.timer=null;if(this.noise){try{this.noise.stop()}catch{}this.noise=null}},
+ startNoise(){const c=Snd.ctx,len=c.sampleRate*2,b=c.createBuffer(1,len,c.sampleRate),d=b.getChannelData(0);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*(Math.random()<.002?.6:.03);
+  const s=c.createBufferSource();s.buffer=b;s.loop=true;const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=2500;const g=c.createGain();g.gain.value=.15;s.connect(f).connect(g).connect(Snd.mus);s.start();this.noise=s},
+ schedule(){const c=Snd.ctx,BAR=3.2;while(this.next<c.currentTime+1.2){const ch=CHORDS[this.bar%4],t0=this.next;
+  ch.forEach(m=>tone(mtof(m),t0,BAR*.95,{gain:.05,dest:Snd.mus,atk:.4}));
+  tone(mtof(ch[0]-12),t0,BAR*.45,{type:'triangle',gain:.09,dest:Snd.mus,atk:.05});tone(mtof(ch[0]-12),t0+BAR/2,BAR*.45,{type:'triangle',gain:.07,dest:Snd.mus,atk:.05});
+  for(let i=0;i<4;i++)if(Math.random()<.55)tone(mtof(PENTA[Math.floor(Math.random()*PENTA.length)]),t0+i*BAR/4+.05,.6,{type:'triangle',gain:.035,dest:Snd.mus,atk:.01});
+  this.next+=BAR;this.bar++}}};
+
+/* ================= Wake lock, Force-mode lock, notifications ================= */
+const Wake={want:false,lock:null,
+ async set(on){this.want=on;if(on)this.acquire();else{try{await this.lock?.release()}catch{}this.lock=null}},
+ async acquire(){if(!this.want||this.lock||!('wakeLock'in navigator)||document.hidden)return;try{this.lock=await navigator.wakeLock.request('screen');this.lock.addEventListener('release',()=>{this.lock=null})}catch{}}};
+const Lock={on:false,set(on){if(on===this.on)return;this.on=on;$('#lock').classList.toggle('on',on);
+ if(on)document.documentElement.requestFullscreen?.().catch(()=>{});else if(document.fullscreenElement)document.exitFullscreen?.().catch(()=>{})}};
+function notify(body){navigator.vibrate?.([120,60,120]);if(!S.settings.notify||!('Notification'in window)||Notification.permission!=='granted'||!document.hidden)return;try{new Notification(t('APP'),{body})}catch{}}
+async function setNotify(on){if(on&&'Notification'in window){let p=Notification.permission;if(p==='default')p=await Notification.requestPermission();S.settings.notify=p==='granted'}else S.settings.notify=false;
+ if(on&&!S.settings.notify)infoDlg('',t('MSG_NOTIFY_BLOCKED'));save();renderSettings()}
+
+/* ================= Timer engine: timestamp-based, never tick-counted ================= */
+const T=()=>S.timer,live=()=>['running','paused'].includes(T().status);
+const phaseDur=p=>(p==='focus'?S.settings.focus:p==='long'?S.settings.long:S.settings.brk)*60000;
+const elapsed=()=>{const x=T();return x.accMs+(x.status==='running'?Date.now()-x.startedAt:0)};
+const nextBreak=()=>T().cycle%S.settings.every===0?'long':'break';
+function advanceCycle(){const x=T();if(x.phase==='long')x.cycle=1;else x.cycle++}
+let lastBeep=-1;
+function begin(phase){const x=T();Object.assign(x,{phase,durMs:phaseDur(phase),accMs:0,over:false,startedAt:Date.now(),status:'running'});lastBeep=-1;afterChange()}
+function pause(){const x=T();if(x.status!=='running')return;x.accMs+=Date.now()-x.startedAt;x.status='paused';afterChange()}
+function resume(){const x=T();if(x.status!=='paused')return;x.startedAt=Date.now();x.status='running';afterChange()}
+function toIdle(phase){const x=T();Object.assign(x,{phase,status:'idle',accMs:0,over:false,durMs:x.mode==='watch'?0:phaseDur(phase)});afterChange()}
+function afterChange(){onRunChange();save();render()}
+function settle(){const x=T(),e=elapsed();if(x.phase==='focus')addFocus(e,x.mode==='watch'&&e>=300000);else addBreak(e)}
+function mainAction(){const x=T();unlockAudio();
+ if(x.status==='running')return pause();if(x.status==='paused')return resume();
+ if(x.status==='ended'){if(x.phase==='focus')return begin(nextBreak());advanceCycle();return begin('focus')}
+ if(x.mode==='watch'){Object.assign(x,{phase:'focus',durMs:0,accMs:0,startedAt:Date.now(),status:'running'});return afterChange()}
+ begin(x.phase)}
+async function stop(){const x=T();if(x.status==='idle')return;
+ if(live()){if(!await confirmDlg('MSG_STOP_CONFIRM')||!live())return;settle()}else if(x.phase!=='focus')advanceCycle();toIdle('focus')}
+async function resetSession(){if(!await confirmDlg('MSG_RESET_CONFIRM'))return;if(live())settle();T().cycle=1;toIdle('focus')}
+async function switchPhase(){const x=T(),ph=x.phase,toBreak=ph==='focus';
+ if(live()){if(!await confirmDlg(toBreak?'MSG_SWITCH_TO_BREAK':'MSG_SWITCH_TO_FOCUS')||!live()||T().phase!==ph)return;settle()}
+ if(toBreak)begin(nextBreak());else{advanceCycle();begin('focus')}}
+function phaseEnd(){const x=T();x.status='ended';x.accMs=x.durMs;
+ if(x.phase==='focus'){addFocus(x.durMs,true);celebrate();chime();notify(t('MSG_FOCUS_DONE'))}else{addBreak(x.durMs);chime();notify(t('MSG_BREAK_DONE'))}
+ onRunChange();save(true);backup();render();askNext();maybeReview()}
+async function askNext(){const x=T(),ph=x.phase;
+ if(ph==='focus'){const c=await dialog({msg:t('MSG_FOCUS_DONE'),buttons:[['break',t(nextBreak()==='long'?'BTN_START_LONG':'BTN_START_BREAK')],['cont',t('BTN_CONTINUE'),'ghost'],['later',t('BTN_LATER'),'ghost']]});
+  if(x.status!=='ended'||x.phase!==ph)return;
+  if(c==='break')begin(nextBreak());else if(c==='cont'){Object.assign(x,{over:true,accMs:0,startedAt:Date.now(),status:'running'});afterChange()}}
+ else{const c=await dialog({msg:t('MSG_BREAK_DONE'),buttons:[['focus',t('BTN_START_FOCUS')],['later',t('BTN_LATER'),'ghost']]});
+  if(x.status!=='ended'||x.phase!==ph)return;advanceCycle();if(c==='focus')begin('focus');else toIdle('focus')}}
+
+/* ================= Records, coins, rewards, anti-cheat ================= */
+let clockSuspect=false,lastNow=Date.now(),lastPersist=0,lastClock=0;
+function addFocus(ms,session){if(ms<=0)return;const d=day();d.focus+=ms;if(session)d.sessions++;
+ const tk=S.tasks.find(k=>k.id===T().taskId);if(tk)tk.focusMs=(tk.focusMs||0)+ms;
+ const coins=Math.floor(ms/60000)+(session?5:0);if(coins>0){S.coins+=coins;toast(t('MSG_EARNED',{n:coins}))}
+ if(session)dailyReward();save();renderHeader()}
+function addBreak(ms){if(ms>0){day().brk+=ms;save()}}
+function dailyReward(){const now=Date.now(),k=dayKey(),tz=new Date().getTimezoneOffset(),r=S.reward;if(r.day===k)return;
+ if(clockSuspect||now<r.last||(r.tz!==null&&r.tz!==tz&&now-r.last<20*3600e3)){setTimeout(()=>toast(t('MSG_CLOCK_WARNING')),1600);return}
+ const y=new Date();y.setDate(y.getDate()-1);S.streak.count=S.streak.last===dayKey(y)?S.streak.count+1:1;S.streak.last=k;
+ const bonus=10+Math.min(S.streak.count,7)*2;S.coins+=bonus;Object.assign(r,{last:now,day:k,tz});
+ setTimeout(()=>toast(t('MSG_DAILY_REWARD',{n:bonus,s:S.streak.count})),1600)}
+async function checkServerTime(){if(location.protocol==='file:')return;try{const r=await fetch(location.href,{method:'HEAD',cache:'no-store'}),d=r.headers.get('Date');
+ if(d&&Math.abs(Date.parse(d)-Date.now())>10*60000){clockSuspect=true;toast(t('MSG_CLOCK_WARNING'))}}catch{}}
+
+function tick(){if(!active)return;const now=Date.now(),x=T();
+ if(now<lastNow-2000){clockSuspect=true;if(x.status==='running'){x.accMs+=lastNow-x.startedAt;x.startedAt=now}toast(t('MSG_CLOCK_WARNING'))}
+ lastNow=now;
+ if(x.status==='running'&&x.mode==='pomo'&&!x.over){const rem=x.durMs-elapsed();if(rem<=0)return phaseEnd();
+  const sec=Math.ceil(rem/1000);if(sec<=3&&sec!==lastBeep&&!document.hidden){lastBeep=sec;beep(880,.08)}}
+ if(now-lastPersist>5000){lastPersist=now;S.lastSeen=Math.max(S.lastSeen,now);save()}
+ if(now-lastClock>15000){lastClock=now;updateClock()}
+ renderTime()}
+function startTicker(){let fb=null;const fallback=()=>{if(!fb)fb=setInterval(tick,250)};
+ try{const w=new Worker(URL.createObjectURL(new Blob(['setInterval(()=>postMessage(0),250)'],{type:'text/javascript'})));w.onmessage=tick;w.onerror=fallback}catch{fallback()}}
+
+/* ================= Rendering ================= */
+const C=552.92;
+function phaseName(){const x=T();return x.mode==='watch'?t('PH_WATCH'):x.over?t('PH_OVER'):t({focus:'PH_FOCUS',break:'PH_BREAK',long:'PH_LONG'}[x.phase])}
+function renderTime(){const x=T(),e=elapsed();let txt,fill;
+ if(x.mode==='watch'){txt=fmtS(Math.floor(e/1000));fill=(e%3600000)/3600000}
+ else if(x.over){txt='+'+fmtS(Math.floor(e/1000));fill=1}
+ else if(x.status==='ended'){txt='00:00';fill=0}
+ else{const rem=x.durMs-e;txt=fmtS(Math.ceil(rem/1000));fill=clamp(rem/x.durMs,0,1)}
+ $('#time').textContent=txt;$('#lockTime').textContent=txt;$('#ringProg').style.strokeDashoffset=C*(1-fill);
+ document.title=live()?`${txt} · ${phaseName()}`:t('APP')}
+function renderHeader(){$('#coinPill').textContent='🪙 '+S.coins;$('#streakPill').textContent='🔥 '+currentStreak()}
+function renderTimer(){const x=T();if(x.status==='idle'&&x.mode==='pomo')x.durMs=phaseDur(x.phase);
+ $$('#modeSeg button').forEach(b=>b.classList.toggle('on',b.dataset.mode===x.mode));
+ $('#ring').className='ring '+(x.mode==='watch'?'':x.over?'over':x.phase);
+ $('#phaseLbl').textContent=phaseName();$('#lockPhase').textContent=phaseName();
+ $('#sessLbl').textContent=x.mode==='pomo'?t('LBL_SESSION',{n:x.cycle,m:S.settings.every}):'';
+ $('#btnMain').textContent=x.status==='running'?t('BTN_PAUSE'):x.status==='paused'?t('BTN_RESUME'):x.status==='ended'?(x.phase==='focus'?t(nextBreak()==='long'?'BTN_START_LONG':'BTN_START_BREAK'):t('BTN_START_FOCUS')):t('BTN_START');
+ $('#btnStop').disabled=x.status==='idle';
+ const sw=$('#btnSwitch');sw.hidden=x.mode==='watch';sw.textContent=x.phase==='focus'?t('BTN_SWITCH_BREAK'):t('BTN_SWITCH_FOCUS');
+ renderTaskSelect();renderTime();setCharState()}
+function render(){renderHeader();renderTimer()}
+function renderAll(){render();renderRoom();renderTasks();renderShop();renderStats();renderSettings()}
+let celebrating=false;
+function setCharState(){const x=T();let st='idle';if(x.status==='running')st=x.phase==='focus'?'study':'relax';if(celebrating)st='celebrate';$('#room').dataset.state=st}
+function celebrate(){celebrating=true;setCharState();confetti();setTimeout(()=>{celebrating=false;setCharState()},1500)}
+function confetti(){const fx=$('#fx'),cols=['#ff9aa2','#ffdac1','#b5ead7','#c7ceea','#fff1b8'];for(let i=0;i<28;i++){const s=h('span',{class:'confetti',style:`left:${Math.random()*100}%;background:${cols[i%5]};animation-delay:${(Math.random()*.4).toFixed(2)}s;animation-duration:${(1.2+Math.random()*.8).toFixed(2)}s`});fx.append(s);setTimeout(()=>s.remove(),2800)}}
+function onRunChange(){const x=T(),run=x.status==='running';Music.set(run&&S.settings.music);Wake.set(run&&S.settings.awake);Lock.set(run&&x.phase==='focus'&&S.settings.force);setCharState()}
+
+/* ================= Room: themes, furniture, drag to arrange ================= */
+const NS='http://www.w3.org/2000/svg';
+function renderRoom(){const th=THEMES.find(x=>x.id===S.theme)||THEMES[0],room=$('#room');
+ for(const k of['wall','floor','sky','trim'])room.style.setProperty('--'+k,th.c[k]);room.classList.toggle('dark',!!th.c.dark);
+ const layer=$('#furn');layer.replaceChildren();
+ FURN.filter(f=>S.owned.includes(f.id)&&S.placed[f.id]?.on).sort((a,b)=>(a.id==='rug'?-1:b.id==='rug'?1:0)||(a.zone==='wall'?-1:b.zone==='wall'?1:0)||S.placed[a.id].y-S.placed[b.id].y)
+ .forEach(f=>{const p=S.placed[f.id],g=document.createElementNS(NS,'g');g.setAttribute('class','fitem');g.dataset.id=f.id;g.setAttribute('transform',`translate(${p.x} ${p.y})`);g.innerHTML=ART[f.id];layer.append(g)});
+ $('#outfit').innerHTML=OUTFIT_ART[S.outfit]||'';
+ $('#drinkTop').setAttribute('fill',(DRINKS.find(d=>d.id===S.cafe.drink)||DRINKS[0]).color);updateClock()}
+function updateClock(){const g=$('#furn [data-id="clock"]');if(!g)return;const d=new Date();
+ g.querySelector('.hh').setAttribute('transform',`rotate(${(d.getHours()%12)*30+d.getMinutes()/2})`);g.querySelector('.mh').setAttribute('transform',`rotate(${d.getMinutes()*6})`)}
+let editing=false,drag=null;
+function svgPoint(e){const svg=$('#room'),pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;return pt.matrixTransform(svg.getScreenCTM().inverse())}
+function bindDrag(){const L=$('#furn');
+ L.addEventListener('pointerdown',e=>{if(!editing)return;const g=e.target.closest('[data-id]');if(!g)return;const p=svgPoint(e),pos=S.placed[g.dataset.id];drag={g,id:g.dataset.id,dx:p.x-pos.x,dy:p.y-pos.y};g.setPointerCapture(e.pointerId);e.preventDefault()});
+ L.addEventListener('pointermove',e=>{if(!drag)return;const p=svgPoint(e),f=FURN.find(x=>x.id===drag.id),pos=S.placed[drag.id];
+  pos.x=+clamp(p.x-drag.dx,16,344).toFixed(1);pos.y=+(f.zone==='wall'?clamp(p.y-drag.dy,14,160):clamp(p.y-drag.dy,198,238)).toFixed(1);drag.g.setAttribute('transform',`translate(${pos.x} ${pos.y})`)});
+ const end=()=>{if(!drag)return;drag=null;save();renderRoom()};L.addEventListener('pointerup',end);L.addEventListener('pointercancel',end)}
+
+/* ================= Quests ================= */
+function addTask(title){title=title.trim();if(!title)return;S.tasks.push({id:uid(),title:title.slice(0,80),done:false,focusMs:0,created:Date.now()});save();renderTasks();renderTaskSelect()}
+function toggleTask(id){const k=S.tasks.find(x=>x.id===id);if(!k)return;k.done=!k.done;if(S.tasks.every(x=>x.done)){chime();celebrate()}save();renderTasks();renderTaskSelect()}
+async function editTask(id){const k=S.tasks.find(x=>x.id===id);if(!k)return;const r=await dialog({title:t('MSG_EDIT_TASK'),input:k.title,buttons:[[null,t('BTN_CANCEL'),'ghost'],['ok',t('BTN_SAVE')]]});
+ if(r&&r.text.trim()){k.title=r.text.trim().slice(0,80);save();renderTasks();renderTaskSelect()}}
+async function delTask(id){if(!await confirmDlg('MSG_DELETE_TASK'))return;S.tasks=S.tasks.filter(x=>x.id!==id);if(T().taskId===id)T().taskId=null;save();renderTasks();renderTaskSelect()}
+function focusOn(id){T().taskId=id;save();switchView('focus');renderTimer()}
+function renderTasks(){const ul=$('#taskList');ul.replaceChildren();
+ for(const k of S.tasks)ul.append(h('li',{class:'task'+(k.done?' done':'')},
+  h('input',{type:'checkbox',checked:k.done,'aria-label':k.title,onchange:()=>toggleTask(k.id)}),
+  h('div',{class:'tt'},h('div',{class:'ttl',text:k.title}),h('div',{class:'muted small',text:fmtHM(k.focusMs||0)+(T().taskId===k.id?' · ⏱️':'')})),
+  !k.done&&h('button',{class:'iconbtn sm',title:t('TAB_FOCUS'),onclick:()=>focusOn(k.id)},'▶'),
+  h('button',{class:'iconbtn sm',title:t('MSG_EDIT_TASK'),onclick:()=>editTask(k.id)},'✏️'),
+  h('button',{class:'iconbtn sm',title:t('BTN_DELETE'),onclick:()=>delTask(k.id)},'🗑️')));
+ $('#allDone').hidden=!(S.tasks.length&&S.tasks.every(x=>x.done));$('#noTasks').hidden=S.tasks.length>0}
+function renderTaskSelect(){const sel=$('#taskSel'),id=T().taskId;sel.replaceChildren(h('option',{value:''},t('LBL_NONE')),...S.tasks.filter(k=>!k.done||k.id===id).map(k=>h('option',{value:k.id},k.title)));sel.value=id||''}
+
+/* ================= Shop & café ================= */
+let shopTab='furn';
+function buy(it){if(S.coins<it.price){toast(t('MSG_NOT_ENOUGH',{n:it.price-S.coins}));beep(220,.15);return}
+ S.coins-=it.price;S.owned.push(it.id);if(FURN.includes(it))S.placed[it.id]={...it.pos,on:true};if(OUTFITS.includes(it))S.outfit=it.id;if(THEMES.includes(it))S.theme=it.id;
+ unlockAudio();chime();toast(t('MSG_BOUGHT',{x:name(it)}));save(true);backup();renderHeader();renderRoom();renderShop()}
+function renderShop(){$$('#shopSeg button').forEach(b=>b.classList.toggle('on',b.dataset.tab===shopTab));const grid=$('#shopGrid');grid.replaceChildren();
+ if(shopTab==='cafe')return renderCafe(grid);
+ const list=shopTab==='furn'?FURN:shopTab==='outfit'?OUTFITS:THEMES;
+ for(const it of list){const owned=S.owned.includes(it.id);let btn;
+  if(!owned)btn=h('button',{class:'btn small',onclick:()=>buy(it)},'🪙 '+it.price);
+  else if(shopTab==='furn'){const on=!!S.placed[it.id]?.on;btn=h('button',{class:'btn small '+(on?'ghost':'mint'),onclick:()=>{S.placed[it.id]=S.placed[it.id]||{...it.pos};S.placed[it.id].on=!on;save();renderRoom();renderShop()}},t(on?'BTN_HIDE':'BTN_PLACE'))}
+  else if(shopTab==='outfit'){const eq=S.outfit===it.id;btn=h('button',{class:'btn small '+(eq?'ghost':'mint'),disabled:eq,onclick:()=>{S.outfit=it.id;save();renderRoom();renderShop()}},t(eq?'LBL_EQUIPPED':'BTN_EQUIP'))}
+  else{const eq=S.theme===it.id;btn=h('button',{class:'btn small '+(eq?'ghost':'mint'),disabled:eq,onclick:()=>{S.theme=it.id;save();renderRoom();renderShop()}},t(eq?'LBL_APPLIED':'BTN_APPLY'))}
+  const icon=shopTab==='theme'?h('div',{class:'swatch',style:`background:linear-gradient(${it.c.wall} 60%,${it.c.floor} 60%)`}):h('div',{class:'icon'},it.icon);
+  grid.append(h('div',{class:'item'+(owned?' owned':'')},icon,h('div',{class:'iname'},name(it)),btn))}}
+function renderCafe(grid){const claimed=S.cafe.day===dayKey();
+ grid.append(h('div',{class:'card cafe'},h('div',{},t('CAFE_DESC')),
+  h('div',{class:'drinks'},...DRINKS.map(d=>h('button',{class:'item'+(S.cafe.drink===d.id?' owned':''),disabled:claimed,onclick:()=>claimCafe(d)},h('div',{class:'icon'},d.icon),h('div',{class:'iname'},name(d))))),
+  h('p',{class:'muted small'},t(claimed?'CAFE_CLAIMED':'CAFE_FREE')),h('button',{class:'btn ghost small',onclick:shareToday},t('BTN_SHARE'))))}
+function claimCafe(d){if(S.cafe.day===dayKey())return;if(clockSuspect){toast(t('MSG_CLOCK_WARNING'));return}
+ S.cafe={day:dayKey(),drink:d.id};S.coins+=3;unlockAudio();chime();toast(t('MSG_CAFE',{x:name(d)}));save();renderHeader();renderShop();renderRoom()}
+async function shareToday(){const d=peek(dayKey()),text=t('SHARE_TEXT',{m:fmtHM(d.focus),s:d.sessions});
+ try{if(navigator.share){await navigator.share({text});return}await navigator.clipboard.writeText(text);toast(t('MSG_COPIED'))}catch{}}
+
+/* ================= Stats ================= */
+function renderStats(){const td=peek(dayKey());$('#stFocus').textContent=fmtHM(td.focus);$('#stBreak').textContent=fmtHM(td.brk);$('#stSess').textContent=td.sessions;$('#stStreak').textContent='🔥 '+currentStreak();
+ const days=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);days.push(d)}
+ const vals=days.map(d=>peek(dayKey(d)).focus),max=Math.max(...vals,1);
+ $('#bars').replaceChildren(...days.map((d,i)=>h('div',{class:'bar'},h('div',{class:'bv',text:vals[i]?fmtHM(vals[i]):''}),h('div',{class:'bt'},h('div',{class:'bf',style:`height:${vals[i]/max*100}%`})),h('div',{class:'bl',text:d.toLocaleDateString(S.settings.lang,{weekday:'short'})}))));
+ const pre=dayKey().slice(0,7),rows=Object.entries(S.days).filter(([k])=>k.startsWith(pre)).sort((a,b)=>b[0].localeCompare(a[0]));
+ $('#monthRows').replaceChildren(...rows.map(([k,d])=>h('tr',{},h('td',{},new Date(k+'T12:00:00').toLocaleDateString(S.settings.lang,{day:'numeric',weekday:'short'})),h('td',{},fmtHM(d.focus)),h('td',{},fmtHM(d.brk)),h('td',{},d.sessions))));
+ const tot=rows.reduce((a,[,d])=>({f:a.f+d.focus,s:a.s+d.sessions}),{f:0,s:0});
+ $('#monthSum').textContent=rows.length?`${t('ST_DAYS',{n:rows.length})} · ${fmtHM(tot.f)} · ${tot.s} ${t('ST_SESSIONS')}`:t('ST_EMPTY')}
+
+/* ================= Settings, backup, delete ================= */
+function renderSettings(){const s=S.settings,sel=$('#sLang');if(!sel.options.length)for(const[k,v]of Object.entries(LANGS))sel.append(h('option',{value:k},v));
+ sel.value=s.lang;$('#sFocus').value=s.focus;$('#sBreak').value=s.brk;$('#sLong').value=s.long;$('#sEvery').value=s.every;$('#sVol').value=s.volume;
+ $('#sMusic').checked=s.music;$('#sSfx').checked=s.sfx;$('#sNotify').checked=s.notify;$('#sAwake').checked=s.awake;$('#sForce').checked=s.force;
+ $('#notifyWarn').hidden=('Notification'in window)?Notification.permission!=='denied'&&s.notify:false}
+function exportData(){const j=JSON.stringify(S),payload=JSON.stringify({app:'pomo-nook',v:1,exported:new Date().toISOString(),h:hash(SALT+j),data:j});
+ const a=h('a',{href:URL.createObjectURL(new Blob([payload],{type:'application/json'})),download:`pomo-nook-backup-${dayKey()}.json`});document.body.append(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
+async function importData(file){let d;try{const o=JSON.parse(await file.text());if(o.app!=='pomo-nook'||typeof o.data!=='string'||hash(SALT+o.data)!==o.h)throw 0;d=migrate(JSON.parse(o.data))}catch{return infoDlg('',t('MSG_IMPORT_BAD'))}
+ if(!await dialog({msg:t('MSG_IMPORT_CONFIRM',{c:d.coins,d:Object.keys(d.days).length}),buttons:[[false,t('BTN_CANCEL'),'ghost'],[true,t('BTN_YES')]]}))return;
+ backup();S=d;save(true);applyI18n();onRunChange();renderAll();toast(t('MSG_IMPORT_OK'))}
+async function deleteAll(){if(!await dialog({title:'⚠️',msg:t('MSG_DELETE_ALL'),buttons:[[false,t('BTN_CANCEL'),'ghost'],[true,t('BTN_DELETE'),'danger']]}))return;
+ store.del(KEY);store.del(BAK);Music.stop();Lock.set(false);S=defaults();save(true);applyI18n();onRunChange();renderAll();$('#settings').close()}
+async function maybeReview(){if(S.asked||totalSessions()<5)return;S.asked=true;save();
+ const c=await dialog({msg:t('REVIEW_Q'),buttons:[['yes',t('REVIEW_YES')],['no',t('REVIEW_NO'),'ghost']]});
+ if(c==='yes')window.open(REPO,'_blank','noopener');else if(c==='no')window.open(REPO+'/issues/new','_blank','noopener')}
+
+/* ================= Navigation, single-active-tab guard, wiring ================= */
+function switchView(v){$$('#tabs button').forEach(b=>b.classList.toggle('active',b.dataset.view===v));$$('.view').forEach(s=>s.classList.toggle('active',s.id==='v-'+v));
+ if(v==='stats')renderStats();if(v==='shop')renderShop();if(v==='tasks')renderTasks();window.scrollTo(0,0)}
+const bc='BroadcastChannel'in window?new BroadcastChannel('pomo-nook'):null;
+function takeover(){active=true;$('#dup').classList.remove('on');bc?.postMessage('takeover')}
+if(bc)bc.onmessage=e=>{if(e.data==='takeover'&&active){save(true);active=false;Music.stop();Wake.set(false);Lock.set(false);$('#dup').classList.add('on')}};
+function bind(){
+ $('#tabs').onclick=e=>{const b=e.target.closest('button');if(b)switchView(b.dataset.view)};
+ $('#btnMain').onclick=mainAction;$('#btnStop').onclick=stop;$('#btnReset').onclick=resetSession;$('#btnSwitch').onclick=switchPhase;
+ $('#modeSeg').onclick=e=>{const m=e.target.closest('button')?.dataset.mode,x=T();if(!m||m===x.mode)return;if(live()){toast(t('MSG_STOP_FIRST'));return}
+  x.mode=m;x.status='idle';x.over=false;x.accMs=0;x.phase='focus';x.durMs=m==='watch'?0:phaseDur('focus');save();renderTimer()};
+ $('#taskSel').onchange=e=>{T().taskId=e.target.value||null;save()};
+ $('#taskForm').onsubmit=e=>{e.preventDefault();addTask($('#taskInput').value);$('#taskInput').value=''};
+ $('#shopSeg').onclick=e=>{const b=e.target.closest('button');if(b){shopTab=b.dataset.tab;renderShop()}};
+ $('#btnArrange').onclick=()=>{editing=!editing;$('#roomwrap').classList.toggle('editing',editing);$('#btnArrange').textContent=t(editing?'BTN_DONE':'BTN_ARRANGE');if(editing)toast(t('MSG_ARRANGE_HINT'))};
+ bindDrag();
+ $('#btnSettings').onclick=()=>{renderSettings();$('#settings').showModal()};$('#setClose').onclick=()=>$('#settings').close();
+ $('#sLang').onchange=e=>{S.settings.lang=e.target.value;save();applyI18n();renderAll()};
+ const num=(id,key,min,max)=>$(id).onchange=e=>{let v=Math.round(+e.target.value);if(!Number.isFinite(v))v=S.settings[key];S.settings[key]=clamp(v,min,max);e.target.value=S.settings[key];save();renderTimer()};
+ num('#sFocus','focus',1,180);num('#sBreak','brk',1,60);num('#sLong','long',1,90);num('#sEvery','every',1,12);
+ $('#sVol').oninput=e=>{S.settings.volume=+e.target.value;applyVolume();save()};$('#sVol').onchange=()=>{unlockAudio();beep(660,.08)};
+ $('#sMusic').onchange=e=>{S.settings.music=e.target.checked;unlockAudio();save();onRunChange()};
+ $('#sSfx').onchange=e=>{S.settings.sfx=e.target.checked;applyVolume();save()};
+ $('#sNotify').onchange=e=>setNotify(e.target.checked);
+ $('#sAwake').onchange=e=>{S.settings.awake=e.target.checked;save();onRunChange()};
+ $('#sForce').onchange=e=>{S.settings.force=e.target.checked;save();if(e.target.checked)infoDlg(t('FORCE_HELP_TITLE'),t('FORCE_HELP'));onRunChange()};
+ $('#forceHelp').onclick=$('#btnLockHelp').onclick=()=>infoDlg(t('FORCE_HELP_TITLE'),t('FORCE_HELP'));
+ $('#btnGiveUp').onclick=async()=>{if(!await confirmDlg('MSG_GIVE_UP'))return;if(live())settle();toIdle('focus')};
+ $('#btnExport').onclick=exportData;$('#btnImport').onclick=()=>$('#importFile').click();
+ $('#importFile').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)importData(f)};
+ $('#btnDeleteAll').onclick=deleteAll;$('#feedbackLink').href=REPO+'/issues';
+ $('#btnUseHere').onclick=()=>{const u=unpack(store.get(KEY));if(u.ok)S=u.data;takeover();applyI18n();onRunChange();renderAll()};
+ document.addEventListener('pointerdown',unlockAudio,{once:true});
+ document.addEventListener('keydown',e=>{if(e.code==='Space'&&!e.target.closest('input,select,button,dialog')&&$('#v-focus').classList.contains('active')){e.preventDefault();mainAction()}});
+ document.addEventListener('visibilitychange',()=>{if(!active)return;
+  if(document.hidden){if(Lock.on){day().dist++}save(true)}else{Wake.acquire();if(Lock.on)toast(t('MSG_LEFT_TAB',{n:peek(dayKey()).dist||0}));tick()}});
+ addEventListener('pagehide',()=>save(true))}
+
+/* ================= Boot ================= */
+async function boot(){S=defaults();const main=unpack(store.get(KEY));
+ if(main.ok)S=main.data;else if(!main.empty){applyI18n();const bak=unpack(store.get(BAK));
+  const c=await dialog({title:'⚠️',msg:t('MSG_CORRUPT'),buttons:bak.ok?[['restore',t('BTN_RESTORE')],['fresh',t('BTN_RESET_DATA'),'ghost']]:[['fresh',t('BTN_RESET_DATA')]]});
+  if(c==='restore'&&bak.ok)S=bak.data}
+ if(Date.now()<S.lastSeen-120000)clockSuspect=true;S.lastSeen=Math.max(S.lastSeen,Date.now());lastNow=Date.now();
+ save(true);if(!store.get(BAK))backup();
+ applyI18n();bind();takeover();renderAll();onRunChange();startTicker();checkServerTime();
+ if(clockSuspect)toast(t('MSG_CLOCK_WARNING'))}
+boot();
+</script>
+</body>
+</html>
