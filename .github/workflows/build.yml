@@ -1,0 +1,76 @@
+name: Build ELA study guide
+
+# Builds ELA_Applied_Chemistry_Study_Guide.pdf from the PDFs in ela_pdfs/ using
+# only open-source tools (Poppler, PyMuPDF, Tesseract/OCRmyPDF, TeX Live).
+on:
+  push:
+    branches: ["**"]
+    paths-ignore:
+      - "dist/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-study-guide-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for source PDFs
+        id: src
+        run: |
+          n=$(find ela_pdfs -iname '*.pdf' 2>/dev/null | wc -l)
+          echo "count=$n" >> "$GITHUB_OUTPUT"
+          if [ "$n" -eq 0 ]; then
+            echo "::warning::No PDFs in ela_pdfs/ yet. Upload the ELA PDFs there to build the study guide."
+          else
+            echo "Found $n PDF(s)"
+          fi
+
+      - uses: actions/setup-python@v5
+        if: steps.src.outputs.count != '0'
+        with:
+          python-version: "3.12"
+
+      - name: Install TeX Live, Poppler and OCR tools
+        if: steps.src.outputs.count != '0'
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            texlive-latex-extra texlive-science texlive-fonts-recommended latexmk \
+            poppler-utils ocrmypdf tesseract-ocr tesseract-ocr-eng
+          pip install pymupdf
+
+      - name: Extract, summarise and build
+        if: steps.src.outputs.count != '0'
+        run: |
+          python extract.py && python summarize.py && cd latex && latexmk -pdf -interaction=nonstopmode -halt-on-error main.tex
+
+      - name: Check for LaTeX errors and copy PDF
+        if: steps.src.outputs.count != '0'
+        run: |
+          if grep -nE '^! ' latex/main.log; then echo "LaTeX errors found"; exit 1; fi
+          mkdir -p dist
+          cp latex/main.pdf dist/ELA_Applied_Chemistry_Study_Guide.pdf
+
+      - uses: actions/upload-artifact@v4
+        if: steps.src.outputs.count != '0'
+        with:
+          name: ELA_Applied_Chemistry_Study_Guide
+          path: dist/ELA_Applied_Chemistry_Study_Guide.pdf
+
+      - name: Commit PDF and generated LaTeX to the repo
+        if: steps.src.outputs.count != '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898732+github-actions[bot]@users.noreply.github.com"
+          git add -f dist/ELA_Applied_Chemistry_Study_Guide.pdf latex/sections latex/figs
+          if git diff --cached --quiet; then echo "No changes"; exit 0; fi
+          git commit -m "Build ELA study guide PDF [skip ci]"
+          git push
