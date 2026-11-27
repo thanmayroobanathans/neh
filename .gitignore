@@ -1,0 +1,9 @@
+work/
+latex/*.aux
+latex/*.log
+latex/*.out
+latex/*.toc
+latex/*.fls
+latex/*.fdb_latexmk
+latex/main.pdf
+__pycache__/
