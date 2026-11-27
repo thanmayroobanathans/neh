@@ -44,7 +44,7 @@ MIT, see `LICENSE`.
 
 ## ELA Applied Chemistry study guide (BACHY109, Winter Sem 2025-26)
 
-1. Upload the ELA PDFs to `ela_pdfs/` on GitHub (Add file → Upload files).
+1. Upload any number of PDFs (or `.zip` files of PDFs, in any subfolder) to `ela_pdfs/` on GitHub (Add file → Upload files). Every upload is combined into one consolidated guide; a PDF that contains several experiments is split and each part is merged with the same experiment from other files.
 2. The **Build ELA study guide** workflow runs on that push (or run it from the Actions tab).
 3. It extracts text (`pdftotext -layout`, PyMuPDF, OCR with OCRmyPDF/Tesseract for scans), removes byte-identical duplicates (SHA-256), generates LaTeX from the extracted text only, and builds the PDF with `latexmk`.
 4. The result is committed to `dist/ELA_Applied_Chemistry_Study_Guide.pdf` and is also attached to the run as an artifact.

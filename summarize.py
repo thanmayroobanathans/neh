@@ -400,7 +400,8 @@ def split_manual(pages: list[str]) -> list[tuple[str, tuple[int, int], str]]:
     filtered = []
     for k, s in enumerate(starts):
         nxt = starts[k + 1] if k + 1 < len(starts) else len(lines)
-        if nxt - s >= 8:
+        body = [l for _, l in lines[s:nxt] if l.strip()]
+        if len(body) >= 8 or any(AIM_LINE.match(l) for l in body):
             filtered.append(s)
     starts = filtered
     chunks = []
@@ -975,8 +976,12 @@ def main() -> int:
         raw = (ROOT / f["text"]).read_text(encoding="utf-8", errors="replace")
         pages = clean_pages(raw)
         _, ftitle = file_title(f["name"])
-        is_manual = bool(re.search(r"man[u]?al|lan[- ]?manual", ftitle, re.I))
-        parts = split_manual(pages) if is_manual else [(ftitle, (1, len(pages)), "\n".join(pages))]
+        # any PDF holding several experiments (lab manuals, record books, combined notes) is split
+        parts = split_manual(pages)
+        is_manual = bool(re.search(r"man[u]?al|lan[- ]?manual", ftitle, re.I)) or \
+            len([p for p in parts if p[0] != "_front"]) >= 2
+        if not is_manual:
+            parts = [(ftitle, (1, len(pages)), "\n".join(pages))]
         if not "".join(p[2] for p in parts).strip():
             usage.setdefault(f["name"], []).append("(no text could be extracted)")
             continue

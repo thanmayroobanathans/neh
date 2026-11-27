@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -183,12 +184,39 @@ def extract_figures(pdf: Path, slug: str, scanned: bool) -> list[dict]:
     return figs
 
 
+def unpack_zips() -> list[Path]:
+    """PDFs inside any .zip uploaded to ela_pdfs/ (only .pdf members are extracted)."""
+    out: list[Path] = []
+    dest_root = WORK / "unzipped"
+    if dest_root.exists():
+        shutil.rmtree(dest_root)
+    for z in sorted(SRC_DIR.rglob("*")):
+        if z.suffix.lower() != ".zip":
+            continue
+        try:
+            with zipfile.ZipFile(z) as zf:
+                for info in zf.infolist():
+                    name = Path(info.filename).name
+                    if info.is_dir() or not name.lower().endswith(".pdf") or name.startswith("._"):
+                        continue
+                    dest = dest_root / slugify(z.stem) / name   # flattened: no path traversal
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    with zf.open(info) as src, dest.open("wb") as dst:
+                        shutil.copyfileobj(src, dst)
+                    out.append(dest)
+            print(f"  unpacked {z.name}: {len(out)} PDF(s) so far")
+        except zipfile.BadZipFile:
+            print(f"  WARNING: {z.name} is not a valid zip; skipped")
+    return out
+
+
 def main() -> int:
-    pdfs = sorted(p for p in SRC_DIR.rglob("*") if p.suffix.lower() == ".pdf") if SRC_DIR.exists() else []
-    if not pdfs:
-        print(f"ERROR: no PDFs found in {SRC_DIR}. Commit the ELA PDFs to ela_pdfs/ first.")
-        return 1
     WORK.mkdir(exist_ok=True)
+    pdfs = sorted(p for p in SRC_DIR.rglob("*") if p.suffix.lower() == ".pdf") if SRC_DIR.exists() else []
+    pdfs += unpack_zips() if SRC_DIR.exists() else []
+    if not pdfs:
+        print(f"ERROR: no PDFs found in {SRC_DIR}. Upload PDFs (or a .zip of PDFs) to ela_pdfs/ first.")
+        return 1
     FIGS.mkdir(parents=True, exist_ok=True)
     for old in FIGS.glob("*.png"):
         old.unlink()
@@ -198,19 +226,23 @@ def main() -> int:
         by_hash.setdefault(sha256(p), []).append(p)
 
     manifest = {"files": [], "duplicates": []}
+    stems: set[str] = set()
     for digest, group in by_hash.items():
-        group.sort(key=lambda p: p.name)
+        group.sort(key=lambda p: (p.name, str(p)))
         keep, dups = group[0], group[1:]
         stem = keep.stem
+        if stem in stems:                      # same file name in another folder / zip
+            stem = f"{stem}-{digest[:8]}"
+        stems.add(stem)
         print(f"* {keep.name}")
         text, method = extract_text(keep)
         (WORK / f"{stem}.txt").write_text(text, encoding="utf-8")
         npages = page_count(keep)
-        figs = extract_figures(keep, slugify(stem)[-60:], scanned=(method == "OCR"))
+        figs = extract_figures(keep, (slugify(stem)[-50:] + "-" + digest[:6]), scanned=(method == "OCR"))
         print(f"    {npages} pages, {len(text)} chars via {method}, {len(figs)} figures,"
               f" {len(dups)} duplicate(s)")
         manifest["files"].append({
-            "name": keep.name, "stem": stem, "path": str(keep.relative_to(ROOT)),
+            "name": keep.name if stem == keep.stem else f"{stem}.pdf", "stem": stem, "path": str(keep.relative_to(ROOT)),
             "sha256": digest, "pages": npages, "method": method,
             "text": str((WORK / f"{stem}.txt").relative_to(ROOT)), "figures": figs,
             "duplicates": [d.name for d in dups],
